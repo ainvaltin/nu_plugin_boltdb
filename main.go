@@ -56,6 +56,7 @@ func boltCmd() *nu.Command {
 				{Long: "key", Short: "k", Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
 				// potentially too confusing?
 				//{Long: "path", Short: "p", Shape: nameShape, Desc: `Last item of the path is "key"`},
+				{Long: "filter", Short: "f", Shape: syntaxshape.Closure(syntaxshape.Binary()), Desc: "Filter keys or buckets by name - closure is called for each key and if it returns `true` item is included in the output."},
 			},
 			RequiredPositional: nu.PositionalArgs{
 				{Name: "file", Shape: syntaxshape.Filepath(), Desc: `Name of the Bolt database file.`},
@@ -69,6 +70,7 @@ func boltCmd() *nu.Command {
 			{Description: `List buckets in the bucket "foo"`, Example: `boltdb /db/file.name buckets -b foo`, Result: &nu.Value{Value: []nu.Value{{Value: []byte("bar")}, {Value: []byte("zoo")}}}},
 			{Description: `Save file content to a key "file.name" in the bucket "files" (read data from input)`, Example: `open /data/file.name --raw | boltdb /db/file.name set -b files -k file.name`},
 			{Description: `Set key "buz" in nested bucket "foo -> bar" (read data from argument)`, Example: `boltdb /db/file.name set -b [foo, bar] -k buz 0x[010203]`},
+			{Description: `List keys starting with bytes 0x[626c] (98 ja 108 in decimal or "bl" as string)`, Example: `boltdb /db/file.name keys -f {|| $in | bytes starts-with 0x[626c]}`, Result: &nu.Value{Value: []nu.Value{{Value: []byte{0x62, 0x6c, 111, 99, 107}}}}},
 		},
 		OnRun: boltCmdHandler,
 	}
@@ -130,6 +132,11 @@ func checkArgs(call *nu.ExecCommand) (dbName, action string, err error) {
 	}
 	if key && !slices.Contains([]string{"get", "set", "delete"}, action) {
 		return "", "", fmt.Errorf(`action %q doesn't allow "key" flag`, action)
+	}
+
+	_, filter := call.FlagValue("filter")
+	if filter && !slices.Contains([]string{"buckets", "keys"}, action) {
+		return "", "", fmt.Errorf(`action %q doesn't support "filter" flag`, action)
 	}
 
 	dbName = call.Positional[0].Value.(string)
