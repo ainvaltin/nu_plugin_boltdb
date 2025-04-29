@@ -9,9 +9,6 @@ import (
 	"os/signal"
 	"slices"
 	"syscall"
-	"time"
-
-	"go.etcd.io/bbolt"
 
 	"github.com/ainvaltin/nu-plugin"
 	"github.com/ainvaltin/nu-plugin/syntaxshape"
@@ -78,12 +75,12 @@ func boltCmd() *nu.Command {
 }
 
 func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
-	dbName, action, err := checkArgs(call)
+	action, err := checkArgs(call)
 	if err != nil {
 		return fmt.Errorf("invalid arguments: %w", err)
 	}
 
-	db, err := bbolt.Open(dbName, 0600, &bbolt.Options{Timeout: 3 * time.Second})
+	db, err := openDB(ctx, call, action)
 	if err != nil {
 		return fmt.Errorf("opening bolt db: %w", err)
 	}
@@ -111,40 +108,35 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 	}
 }
 
-func checkArgs(call *nu.ExecCommand) (dbName, action string, err error) {
+func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	_, path := call.FlagValue("path")
 	_, bucket := call.FlagValue("bucket")
 	_, key := call.FlagValue("key")
 	if path && (bucket || key) {
-		return "", "", fmt.Errorf(`when "path" flag is given "bucket" and/or "key" flag is not allowed`)
+		return "", fmt.Errorf(`when "path" flag is given "bucket" and/or "key" flag is not allowed`)
 	}
 
 	if len(call.Positional) == 3 && call.Input != nil {
-		return "", "", fmt.Errorf(`both "data" argument and input can't be used at the same time`)
+		return "", fmt.Errorf(`both "data" argument and input can't be used at the same time`)
 	}
 
 	action = call.Positional[1].Value.(string)
 	if action != "set" && (len(call.Positional) == 3 || call.Input != nil) {
-		return "", "", fmt.Errorf(`action %q doesn't accept input`, action)
+		return "", fmt.Errorf(`action %q doesn't accept input`, action)
 	}
 	if (action == "get" || action == "set") && !key {
-		return "", "", fmt.Errorf(`action %q requires "key" flag to be provided`, action)
+		return "", fmt.Errorf(`action %q requires "key" flag to be provided`, action)
 	}
 	if key && !slices.Contains([]string{"get", "set", "delete"}, action) {
-		return "", "", fmt.Errorf(`action %q doesn't allow "key" flag`, action)
+		return "", fmt.Errorf(`action %q doesn't allow "key" flag`, action)
 	}
 
 	_, filter := call.FlagValue("filter")
 	if filter && !slices.Contains([]string{"buckets", "keys"}, action) {
-		return "", "", fmt.Errorf(`action %q doesn't support "filter" flag`, action)
+		return "", fmt.Errorf(`action %q doesn't support "filter" flag`, action)
 	}
 
-	dbName = call.Positional[0].Value.(string)
-	if _, err := os.Stat(dbName); err != nil {
-		return "", "", fmt.Errorf("invalid database name: %w", err)
-	}
-
-	return dbName, action, nil
+	return action, nil
 }
 
 func quitSignalContext() context.Context {

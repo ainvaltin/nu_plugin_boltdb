@@ -3,7 +3,7 @@
 - buckets - list buckets (output is stream);
 - keys - list keys in a bucket (output is stream);
 - get - get value of a key;
-- set - set value of a key (either adds or overrides, value is given either as command input or argument);
+- set - set value of a key (either adds or overrides, value is given either as command input or argument). If bucket is given it must exist (ie it wont be created);
 - add - create bucket, will create all the buckets that do not exist in the given path ("bucket" flag);
 - delete - deletes either bucket (flag "key" is not given) or key inside given bucket;
 - stat - performance stat of the database (flag "bucket" not given) or given bucket;

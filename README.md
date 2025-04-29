@@ -20,6 +20,35 @@ boltdb /path/to/bbolt.db buckets -b blocks
 
 To see the full help of the command run `boltdb --help`.
 
+## Configuration
+
+Configuration can be provided via `$env.config.plugins.NAME` Record with following keys:
+
+| key | default | description |
+|---|---|---|
+| timeout | 3sec | Timeout for the open database call - only single process at a time may open bbolt database. |
+| fileMode | 0600 | FileMode to use when opening database. |
+| ReadOnly | false | If set to `true` databases are opened in read only mode, actions which modify the DB (`add`, `delete`, `set`) would then fail. |
+| mustExist | false | If set to true database file must exist, otherwise plugin returns error. If both `ReadOnly` and `mustExist` are false `add` and `set` actions will create the database (if it doesn't exist, other actions still fail). |
+
+See [bbolt documentation](https://pkg.go.dev/go.etcd.io/bbolt#Open) for more info about these parameters.
+
+### Example configuration
+
+Run `config env` and add
+
+ ```
+$env.config.plugins = {
+    boltdb: {
+        timeout: 5sec,
+        ReadOnly: true
+    }
+}
+```
+
+Reload the nushell configuration, ie on Mac
+
+    source `~/Library/Application Support/nushell/env.nu`
 
 ## Installation
 
