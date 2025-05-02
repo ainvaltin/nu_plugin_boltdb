@@ -4,9 +4,6 @@
 [Plugin](https://www.nushell.sh/contributor-book/plugins.html) 
 to interact with [bbolt database](https://github.com/etcd-io/bbolt).
 
-Written in [Go](https://go.dev/) using 
-[nu-plugin package](https://github.com/ainvaltin/nu-plugin).
-
 ## Usage
 
 Plugin implements `boltdb` command
@@ -52,7 +49,10 @@ Reload the nushell configuration, ie on Mac
 
 ## Installation
 
-Latest version is for Nushell version `0.103.0`.
+Latest version is for Nushell version `0.104.0`.
+
+Written in [Go](https://go.dev/) using 
+[nu-plugin package](https://github.com/ainvaltin/nu-plugin).
 
 To install it you have to have [Go installed](https://go.dev/dl/), then run
 ```sh

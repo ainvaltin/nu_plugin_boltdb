@@ -54,6 +54,7 @@ func boltCmd() *nu.Command {
 				// potentially too confusing?
 				//{Long: "path", Short: "p", Shape: nameShape, Desc: `Last item of the path is "key"`},
 				{Long: "filter", Short: "f", Shape: syntaxshape.Closure(syntaxshape.Binary()), Desc: "Filter keys or buckets by name - closure is called for each key and if it returns `true` item is included in the output."},
+				{Long: "stringify", Short: "s", Desc: "Stringify key/bucket names - instead of raw binary human readable names are listed (commands `buckets` and `keys`)"},
 			},
 			RequiredPositional: nu.PositionalArgs{
 				{Name: "file", Shape: syntaxshape.Filepath(), Desc: `Name of the Bolt database file.`},

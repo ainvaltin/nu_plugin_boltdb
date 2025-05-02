@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"go.etcd.io/bbolt"
 
@@ -88,4 +90,78 @@ func toBytes(v nu.Value) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type %T", t)
 	}
+}
+
+func formatName(name []byte) nu.Value {
+	r := make([]any, 0, 1)
+	printable := false // is the last run in "r" printable
+	for i := 0; i < len(name); {
+		size := printableRun(name[i:])
+		if size > 0 {
+			// minimum str len configuration?
+			if size < 3 && len(r) > 0 {
+				lr := r[len(r)-1].([]byte)
+				r[len(r)-1] = append(lr, name[i:i+size]...)
+			} else {
+				r = append(r, string(name[i:i+size]))
+				printable = true
+			}
+		}
+
+		if i += size; i == len(name) {
+			break
+		}
+
+		// followed by unprintable
+		size = unprintableRun(name[i:])
+		if printable || len(r) == 0 {
+			// if the printable item is shorter than minimum convert to binary?
+			r = append(r, name[i:i+size])
+			printable = false
+		} else {
+			lr := r[len(r)-1].([]byte)
+			r[len(r)-1] = append(lr, name[i:i+size]...)
+		}
+		i += size
+	}
+
+	if len(r) == 1 {
+		if printable {
+			return nu.Value{Value: r[0]}
+		}
+		return nu.Value{Value: fmt.Sprintf("0x[%x]", r[0])}
+	}
+
+	s := "["
+	for _, v := range r {
+		switch t := v.(type) {
+		case string:
+			s += fmt.Sprintf("%q, ", t)
+		case []byte:
+			s += fmt.Sprintf("0x[%x], ", t)
+		}
+	}
+	return nu.Value{Value: strings.TrimSuffix(s, ", ") + "]"}
+}
+
+func printableRun(b []byte) int {
+	for i := 0; i < len(b); {
+		r, size := utf8.DecodeRune(b[i:])
+		if r == utf8.RuneError || !unicode.IsPrint(r) {
+			return i
+		}
+		i += size
+	}
+	return len(b)
+}
+
+func unprintableRun(b []byte) int {
+	for i := 0; i < len(b); {
+		r, size := utf8.DecodeRune(b[i:])
+		if !(r == utf8.RuneError || !unicode.IsPrint(r)) {
+			return i
+		}
+		i += size
+	}
+	return len(b)
 }

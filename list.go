@@ -17,6 +17,11 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 	}
 	filter := getFilter(call)
 
+	format := func(name []byte) nu.Value { return nu.Value{Value: name} }
+	if v, _ := call.FlagValue("stringify"); v.Value.(bool) {
+		format = formatName
+	}
+
 	return db.View(func(tx *bbolt.Tx) error {
 		b, err := goToBucket(tx.Cursor().Bucket(), path)
 		if err != nil {
@@ -30,7 +35,7 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 
 		return b.ForEachBucket(func(k []byte) error {
 			if ok, err := filter(ctx, k); ok {
-				out <- nu.Value{Value: slices.Clone(k)}
+				out <- format(slices.Clone(k))
 			} else if err != nil {
 				return fmt.Errorf("evaluating filter closure: %w", err)
 			}
@@ -46,6 +51,11 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	}
 	filter := getFilter(call)
 
+	format := func(name []byte) nu.Value { return nu.Value{Value: name} }
+	if v, _ := call.FlagValue("stringify"); v.Value.(bool) {
+		format = formatName
+	}
+
 	return db.View(func(tx *bbolt.Tx) error {
 		b, err := goToBucket(tx.Cursor().Bucket(), path)
 		if err != nil {
@@ -60,7 +70,7 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		return b.ForEach(func(k, v []byte) error {
 			if v != nil {
 				if ok, err := filter(ctx, k); ok {
-					out <- nu.Value{Value: slices.Clone(k)}
+					out <- format(slices.Clone(k))
 				} else if err != nil {
 					return fmt.Errorf("evaluating filter closure: %w", err)
 				}
