@@ -14,7 +14,10 @@ import (
 func goToBucket(root *bbolt.Bucket, path [][]byte) (*bbolt.Bucket, error) {
 	for i, v := range path {
 		if root = root.Bucket(v); root == nil {
-			return nil, fmt.Errorf("invalid path, bucket %q does not contain bucket %x", pathStr(path[:i]), v)
+			if i > 0 {
+				return nil, fmt.Errorf("invalid path, bucket %q does not contain bucket 0x[%x]", pathStr(path[:i]), v)
+			}
+			return nil, fmt.Errorf("invalid path, root bucket does not contain bucket 0x[%x]", v)
 		}
 	}
 	return root, nil
@@ -23,20 +26,13 @@ func goToBucket(root *bbolt.Bucket, path [][]byte) (*bbolt.Bucket, error) {
 func pathStr(path [][]byte) string {
 	s := ""
 	for _, v := range path {
-		s += fmt.Sprintf("%x -> ", v)
+		s += fmt.Sprintf("0x[%x] -> ", v)
 	}
 	return strings.TrimSuffix(s, " -> ")
 }
 
 // figure out from flags the path and key of the request
 func location(call *nu.ExecCommand) (bucket [][]byte, key []byte, err error) {
-	// do we have "path" which combines bucket and key?
-	if b, ok := call.FlagValue("path"); ok {
-		bucket, err = toPath(b)
-		return bucket[:len(bucket)-1], bucket[len(bucket)-1], err
-	}
-
-	// do we have separate bucket and key params?
 	if b, ok := call.FlagValue("bucket"); ok {
 		if bucket, err = toPath(b); err != nil {
 			return nil, nil, err

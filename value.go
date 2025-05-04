@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 
 	"go.etcd.io/bbolt"
 
@@ -15,6 +16,7 @@ func addBucket(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	if err != nil {
 		return err
 	}
+
 	return db.Update(func(tx *bbolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(path[0])
 		if err != nil {
@@ -34,13 +36,40 @@ func getValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	if err != nil {
 		return err
 	}
+	filter, err := getFilter(call)
+	if err != nil {
+		return err
+	}
+
 	return db.View(func(tx *bbolt.Tx) error {
 		b, err := goToBucket(tx.Cursor().Bucket(), path)
 		if err != nil {
 			return err
 		}
-		v := b.Get(key)
-		return call.ReturnValue(ctx, nu.Value{Value: v})
+
+		if key != nil {
+			if v := b.Get(key); v != nil {
+				return call.ReturnValue(ctx, nu.Value{Value: slices.Clone(v)})
+			}
+			return nil
+		}
+
+		out, err := call.ReturnListStream(ctx)
+		if err != nil {
+			return fmt.Errorf("creating result stream: %w", err)
+		}
+		defer close(out)
+
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			if v != nil && filter(k) {
+				out <- nu.Value{Value: nu.Record{
+					"key":   nu.Value{Value: slices.Clone(k)},
+					"value": nu.Value{Value: slices.Clone(v)},
+				}}
+			}
+		}
+		return nil
 	})
 }
 

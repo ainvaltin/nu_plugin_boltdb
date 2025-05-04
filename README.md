@@ -15,7 +15,7 @@ ie to list all the buckets in the "blocks" bucket
 boltdb /path/to/bbolt.db buckets -b blocks
 ```
 
-To see the full help of the command run `boltdb --help`.
+See the [list of available actions](./help.md), to see the full help of the command run `boltdb --help`.
 
 ## Configuration
 

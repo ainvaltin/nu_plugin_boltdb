@@ -51,9 +51,7 @@ func boltCmd() *nu.Command {
 				{Long: "bucket", Short: "b", Shape: nameShape, Desc: "Name of the bucket to operate on. Nested buckets are represented by " +
 					"list, ie path `foo -> bar` would be [foo, bar]. Nested lists can be used to build bucket name from parts. When not provided action takes place in the root bucket."},
 				{Long: "key", Short: "k", Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
-				// potentially too confusing?
-				//{Long: "path", Short: "p", Shape: nameShape, Desc: `Last item of the path is "key"`},
-				{Long: "filter", Short: "f", Shape: syntaxshape.Closure(syntaxshape.Binary()), Desc: "Filter keys or buckets by name - closure is called for each key and if it returns `true` item is included in the output."},
+				{Long: "match", Short: "r", Shape: syntaxshape.String(), Desc: "Regex to filter keys or buckets by name - if the name matches the regex it is included in the output."},
 				{Long: "stringify", Short: "s", Desc: "Stringify key/bucket names - instead of raw binary human readable names are listed (commands `buckets` and `keys`)"},
 			},
 			RequiredPositional: nu.PositionalArgs{
@@ -110,31 +108,51 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 }
 
 func checkArgs(call *nu.ExecCommand) (action string, err error) {
-	_, path := call.FlagValue("path")
+	_, filter := call.FlagValue("match")
+	_, stringify := call.FlagValue("stringify")
 	_, bucket := call.FlagValue("bucket")
 	_, key := call.FlagValue("key")
-	if path && (bucket || key) {
-		return "", fmt.Errorf(`when "path" flag is given "bucket" and/or "key" flag is not allowed`)
+
+	switch action = call.Positional[1].Value.(string); action {
+	case "keys", "get", "set", "add", "delete", "buckets", "stat", "info":
+	default:
+		return "", fmt.Errorf("unknown action %q", action)
 	}
 
-	if len(call.Positional) == 3 && call.Input != nil {
-		return "", fmt.Errorf(`both "data" argument and input can't be used at the same time`)
+	// do we have required flags set
+	if !bucket && slices.Contains([]string{"add", "get", "keys", "set", "delete"}, action) {
+		return "", fmt.Errorf(`action %q requires "bucket" flag to be provided`, action)
 	}
-
-	action = call.Positional[1].Value.(string)
-	if action != "set" && (len(call.Positional) == 3 || call.Input != nil) {
-		return "", fmt.Errorf(`action %q doesn't accept input`, action)
-	}
-	if (action == "get" || action == "set") && !key {
+	if !key && action == "set" {
 		return "", fmt.Errorf(`action %q requires "key" flag to be provided`, action)
 	}
+
+	// combinations of flags - either one must be given or only one of the flag can be given
+	if !(key || filter) && slices.Contains([]string{"get", "delete"}, action) {
+		return "", fmt.Errorf(`action %q requires either "key" or "match" flag to be provided`, action)
+	}
+	// do not allow key and filter at the same time?
+	if (key && filter) && slices.Contains([]string{"get", "delete"}, action) {
+		return "", fmt.Errorf(`action %q allows either "key" or "match" flag but not both at the same time`, action)
+	}
+
+	// do we have flags set which do not apply for the action
 	if key && !slices.Contains([]string{"get", "set", "delete"}, action) {
 		return "", fmt.Errorf(`action %q doesn't allow "key" flag`, action)
 	}
+	if filter && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
+		return "", fmt.Errorf(`action %q doesn't support "match" flag`, action)
+	}
+	if stringify && !slices.Contains([]string{"buckets", "keys"}, action) {
+		return "", fmt.Errorf(`action %q doesn't support "stringify" flag`, action)
+	}
 
-	_, filter := call.FlagValue("filter")
-	if filter && !slices.Contains([]string{"buckets", "keys"}, action) {
-		return "", fmt.Errorf(`action %q doesn't support "filter" flag`, action)
+	// inputs
+	if action != "set" && (len(call.Positional) == 3 || call.Input != nil) {
+		return "", fmt.Errorf(`action %q doesn't accept input`, action)
+	}
+	if len(call.Positional) == 3 && call.Input != nil {
+		return "", fmt.Errorf(`both "data" argument and input can't be used at the same time`)
 	}
 
 	return action, nil

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 
 	"go.etcd.io/bbolt"
@@ -15,7 +16,11 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 	if err != nil {
 		return err
 	}
-	filter := getFilter(call)
+
+	filter, err := getFilter(call)
+	if err != nil {
+		return err
+	}
 
 	format := func(name []byte) nu.Value { return nu.Value{Value: name} }
 	if v, _ := call.FlagValue("stringify"); v.Value.(bool) {
@@ -27,6 +32,7 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 		if err != nil {
 			return err
 		}
+
 		out, err := call.ReturnListStream(ctx)
 		if err != nil {
 			return fmt.Errorf("creating result stream: %w", err)
@@ -34,10 +40,8 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 		defer close(out)
 
 		return b.ForEachBucket(func(k []byte) error {
-			if ok, err := filter(ctx, k); ok {
+			if filter(k) {
 				out <- format(slices.Clone(k))
-			} else if err != nil {
-				return fmt.Errorf("evaluating filter closure: %w", err)
 			}
 			return nil
 		})
@@ -49,7 +53,11 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	if err != nil {
 		return err
 	}
-	filter := getFilter(call)
+
+	filter, err := getFilter(call)
+	if err != nil {
+		return err
+	}
 
 	format := func(name []byte) nu.Value { return nu.Value{Value: name} }
 	if v, _ := call.FlagValue("stringify"); v.Value.(bool) {
@@ -61,6 +69,7 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		if err != nil {
 			return err
 		}
+
 		out, err := call.ReturnListStream(ctx)
 		if err != nil {
 			return fmt.Errorf("creating result stream: %w", err)
@@ -68,37 +77,23 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		defer close(out)
 
 		return b.ForEach(func(k, v []byte) error {
-			if v != nil {
-				if ok, err := filter(ctx, k); ok {
-					out <- format(slices.Clone(k))
-				} else if err != nil {
-					return fmt.Errorf("evaluating filter closure: %w", err)
-				}
+			if v != nil && filter(k) {
+				out <- format(slices.Clone(k))
 			}
 			return nil
 		})
 	})
 }
 
-func getFilter(call *nu.ExecCommand) func(ctx context.Context, key []byte) (bool, error) {
-	closure, ok := call.FlagValue("filter")
+func getFilter(call *nu.ExecCommand) (func(key []byte) bool, error) {
+	match, ok := call.FlagValue("match")
 	if !ok {
-		return func(context.Context, []byte) (bool, error) { return true, nil }
+		return func([]byte) bool { return true }, nil
 	}
 
-	return func(ctx context.Context, key []byte) (bool, error) {
-		r, err := call.EvalClosure(ctx, closure, nu.InputValue(nu.Value{Value: key}))
-		if err != nil {
-			return false, fmt.Errorf("evaluating filter closure: %w", err)
-		}
-		b, ok := r.(nu.Value)
-		if !ok {
-			return false, fmt.Errorf("expected that filter closure returns single Value, got %T = %v", r, r)
-		}
-		v, ok := b.Value.(bool)
-		if !ok {
-			return false, fmt.Errorf("expected that filter closure returns bool, got %T = %v", r, r)
-		}
-		return v, nil
+	reg, err := regexp.Compile(match.Value.(string))
+	if err != nil {
+		return nil, fmt.Errorf("compiling regular expression: %w", err)
 	}
+	return func(key []byte) bool { return reg.Match(key) }, nil
 }
