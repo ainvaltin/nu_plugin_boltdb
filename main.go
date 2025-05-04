@@ -66,7 +66,7 @@ func boltCmd() *nu.Command {
 			{Description: `List buckets in the bucket "foo"`, Example: `boltdb /db/file.name buckets -b foo`, Result: &nu.Value{Value: []nu.Value{{Value: []byte("bar")}, {Value: []byte("zoo")}}}},
 			{Description: `Save file content to a key "file.name" in the bucket "files" (read data from input)`, Example: `open /data/file.name --raw | boltdb /db/file.name set -b files -k file.name`},
 			{Description: `Set key "buz" in nested bucket "foo -> bar" (read data from argument)`, Example: `boltdb /db/file.name set -b [foo, bar] -k buz 0x[010203]`},
-			{Description: `List keys starting with bytes 0x[626c] (98 ja 108 in decimal or "bl" as string)`, Example: `boltdb /db/file.name keys -f {|| $in | bytes starts-with 0x[626c]}`, Result: &nu.Value{Value: []nu.Value{{Value: []byte{0x62, 0x6c, 111, 99, 107}}}}},
+			{Description: `List keys starting with "bl" (byte values 0x62 and 0x6c)`, Example: `boltdb /db/file.name keys -r ^bl.*`, Result: &nu.Value{Value: []nu.Value{{Value: []byte{0x62, 0x6c, 111, 99, 107}}}}},
 		},
 		OnRun: boltCmdHandler,
 	}
