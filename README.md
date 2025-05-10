@@ -49,7 +49,7 @@ Reload the nushell configuration, ie on Mac
 
 ## Installation
 
-Latest version is for Nushell version `0.104.0`.
+Latest version is for [Nushell](https://www.nushell.sh/) version **0.104.0**.
 
 Written in [Go](https://go.dev/) using 
 [nu-plugin package](https://github.com/ainvaltin/nu-plugin).

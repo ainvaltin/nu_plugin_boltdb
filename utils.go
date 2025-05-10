@@ -15,9 +15,9 @@ func goToBucket(root *bbolt.Bucket, path [][]byte) (*bbolt.Bucket, error) {
 	for i, v := range path {
 		if root = root.Bucket(v); root == nil {
 			if i > 0 {
-				return nil, fmt.Errorf("invalid path, bucket %q does not contain bucket 0x[%x]", pathStr(path[:i]), v)
+				return nil, fmt.Errorf("invalid path, bucket %s does not contain bucket %s", pathStr(path[:i]), pathStr([][]byte{v}))
 			}
-			return nil, fmt.Errorf("invalid path, root bucket does not contain bucket 0x[%x]", v)
+			return nil, fmt.Errorf("invalid path, root bucket does not contain bucket %s", pathStr([][]byte{v}))
 		}
 	}
 	return root, nil
@@ -26,7 +26,11 @@ func goToBucket(root *bbolt.Bucket, path [][]byte) (*bbolt.Bucket, error) {
 func pathStr(path [][]byte) string {
 	s := ""
 	for _, v := range path {
-		s += fmt.Sprintf("0x[%x] -> ", v)
+		if n := stringifyName(v); len(n) == 1 {
+			s += n[0] + " -> "
+		} else {
+			s += "[" + strings.Join(n, ", ") + "] -> "
+		}
 	}
 	return strings.TrimSuffix(s, " -> ")
 }
@@ -89,17 +93,52 @@ func toBytes(v nu.Value) ([]byte, error) {
 }
 
 func formatName(name []byte) nu.Value {
+	r := stringifyName(name)
+	if len(r) == 1 {
+		return nu.Value{Value: r[0]}
+	}
+
+	return nu.Value{Value: "[" + strings.Join(r, ", ") + "]"}
+}
+
+func stringifyName(name []byte) []string {
+	r := tokenizeName(name)
+	s := make([]string, 0, len(r))
+	for _, v := range r {
+		if t, ok := v.(string); ok {
+			// do we need to quote it?
+			s = append(s, t)
+		} else {
+			s = append(s, fmt.Sprintf("0x[%x]", v))
+		}
+	}
+	return s
+}
+
+func tokenizeName(name []byte) []any {
 	r := make([]any, 0, 1)
 	printable := false // is the last run in "r" printable
 	for i := 0; i < len(name); {
-		size := printableRun(name[i:])
+		size, flags := printableRun(name[i:])
 		if size > 0 {
 			// minimum str len configuration?
 			if size < 3 && len(r) > 0 {
 				lr := r[len(r)-1].([]byte)
 				r[len(r)-1] = append(lr, name[i:i+size]...)
 			} else {
-				r = append(r, string(name[i:i+size]))
+				s := string(name[i : i+size])
+				switch {
+				case flags == 0: // OK to use bare string
+				case flags&flagSQuote == 0:
+					s = "'" + s + "'"
+				case flags&flagBacktick == 0:
+					s = "`" + s + "`"
+				case flags&flagDQuote == 0 && flags&flagBackslash == 0:
+					s = `"` + s + `"`
+				default:
+					s = fmt.Sprintf("%q", s)
+				}
+				r = append(r, s)
 				printable = true
 			}
 		}
@@ -120,35 +159,31 @@ func formatName(name []byte) nu.Value {
 		}
 		i += size
 	}
-
-	if len(r) == 1 {
-		if printable {
-			return nu.Value{Value: r[0]}
-		}
-		return nu.Value{Value: fmt.Sprintf("0x[%x]", r[0])}
-	}
-
-	s := "["
-	for _, v := range r {
-		switch t := v.(type) {
-		case string:
-			s += fmt.Sprintf("%q, ", t)
-		case []byte:
-			s += fmt.Sprintf("0x[%x], ", t)
-		}
-	}
-	return nu.Value{Value: strings.TrimSuffix(s, ", ") + "]"}
+	return r
 }
 
-func printableRun(b []byte) int {
+func printableRun(b []byte) (idx int, flags uint32) {
 	for i := 0; i < len(b); {
 		r, size := utf8.DecodeRune(b[i:])
 		if r == utf8.RuneError || !unicode.IsPrint(r) {
-			return i
+			return i, flags
 		}
+		switch r {
+		case '"':
+			flags |= flagDQuote
+		case '\'':
+			flags |= flagSQuote
+		case '`':
+			flags |= flagBacktick
+		case '\\':
+			flags |= flagBackslash
+		case ' ':
+			flags |= flagSpace
+		}
+
 		i += size
 	}
-	return len(b)
+	return len(b), flags
 }
 
 func unprintableRun(b []byte) int {
@@ -161,3 +196,11 @@ func unprintableRun(b []byte) int {
 	}
 	return len(b)
 }
+
+const (
+	flagDQuote = 1 << iota
+	flagSQuote
+	flagBacktick
+	flagBackslash
+	flagSpace
+)
