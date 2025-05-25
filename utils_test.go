@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func Test_formatName(t *testing.T) {
+func Test_stringifyName(t *testing.T) {
 	t.Run("all printable", func(t *testing.T) {
 		var testCases = []struct {
 			in  []byte
@@ -24,7 +24,7 @@ func Test_formatName(t *testing.T) {
 		}
 
 		for i, tc := range testCases {
-			v := formatName(tc.in)
+			v := stringifyName(tc.in)
 			s, ok := v.Value.(string)
 			if !ok {
 				t.Errorf("[%d] expected Value to be string, got %T", i, v.Value)
@@ -50,7 +50,7 @@ func Test_formatName(t *testing.T) {
 		}
 
 		for i, tc := range testCases {
-			v := formatName(tc.in)
+			v := stringifyName(tc.in)
 			s, ok := v.Value.(string)
 			if !ok {
 				t.Errorf("[%d] expected Value to be string, got %T", i, v.Value)
@@ -87,7 +87,7 @@ func Test_formatName(t *testing.T) {
 		}
 
 		for i, tc := range testCases {
-			v := formatName(tc.in)
+			v := stringifyName(tc.in)
 			s, ok := v.Value.(string)
 			if !ok {
 				t.Errorf("[%d] expected Value to be string, got %T", i, v.Value)

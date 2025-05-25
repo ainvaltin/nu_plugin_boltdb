@@ -32,7 +32,7 @@ See [bbolt documentation](https://pkg.go.dev/go.etcd.io/bbolt#Open) for more inf
 
 ### Example configuration
 
-Run `config env` and add
+Run `config env`, add
 
  ```
 $env.config.plugins = {
@@ -43,7 +43,7 @@ $env.config.plugins = {
 }
 ```
 
-Reload the nushell configuration, ie on Mac
+save the file and reload the nushell configuration, ie on Mac
 
     source `~/Library/Application Support/nushell/env.nu`
 

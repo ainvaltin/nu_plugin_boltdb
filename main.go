@@ -48,20 +48,20 @@ func boltCmd() *nu.Command {
 				{In: types.String(), Out: types.Any()},
 			},
 			Named: []nu.Flag{
-				{Long: "bucket", Short: "b", Shape: nameShape, Desc: "Name of the bucket to operate on. Nested buckets are represented by " +
+				{Long: "bucket", Short: 'b', Shape: nameShape, Desc: "Name of the bucket to operate on. Nested buckets are represented by " +
 					"list, ie path `foo -> bar` would be [foo, bar]. Nested lists can be used to build bucket name from parts. When not provided action takes place in the root bucket."},
-				{Long: "key", Short: "k", Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
-				{Long: "match", Short: "r", Shape: syntaxshape.String(), Desc: "Regex to filter keys or buckets by name - if the name matches the regex it is included in the output."},
-				{Long: "stringify", Short: "s", Desc: "Stringify key/bucket names - instead of raw binary human readable names are listed (commands `buckets` and `keys`)"},
+				{Long: "key", Short: 'k', Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
+				{Long: "match", Short: 'r', Shape: syntaxshape.String(), Desc: "Regex to filter keys or buckets by name - if the name matches the regex it is included in the output."},
+				{Long: "format", Short: 'f', Shape: syntaxshape.String(), Desc: "Format key/bucket names - instead of raw binary human readable names are listed (commands `buckets` and `keys`), values: binary, hex, text, stringify"},
 			},
-			RequiredPositional: nu.PositionalArgs{
+			RequiredPositional: []nu.PositionalArg{
 				{Name: "file", Shape: syntaxshape.Filepath(), Desc: `Name of the Bolt database file.`},
 				{Name: "action", Shape: syntaxshape.String(), Desc: "Operation to perform: buckets, keys, get, set, add, delete, stat, info"},
 			},
 			RestPositional:       &nu.PositionalArg{Name: "data", Shape: syntaxshape.OneOf(syntaxshape.Binary(), syntaxshape.String()), Desc: `Data for the operation, alternative for the input.`},
 			AllowMissingExamples: true,
 		},
-		Examples: nu.Examples{
+		Examples: []nu.Example{
 			{Description: `List root buckets`, Example: `boltdb /db/file.name buckets`, Result: &nu.Value{Value: []nu.Value{{Value: []byte{1, 2, 3, 4}}}}},
 			{Description: `List buckets in the bucket "foo"`, Example: `boltdb /db/file.name buckets -b foo`, Result: &nu.Value{Value: []nu.Value{{Value: []byte("bar")}, {Value: []byte("zoo")}}}},
 			{Description: `Save file content to a key "file.name" in the bucket "files" (read data from input)`, Example: `open /data/file.name --raw | boltdb /db/file.name set -b files -k file.name`},
@@ -109,7 +109,7 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 
 func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	_, filter := call.FlagValue("match")
-	_, stringify := call.FlagValue("stringify")
+	_, format := call.FlagValue("format")
 	_, bucket := call.FlagValue("bucket")
 	_, key := call.FlagValue("key")
 
@@ -143,8 +143,8 @@ func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	if filter && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
 		return "", fmt.Errorf(`action %q doesn't support "match" flag`, action)
 	}
-	if stringify && !slices.Contains([]string{"buckets", "keys"}, action) {
-		return "", fmt.Errorf(`action %q doesn't support "stringify" flag`, action)
+	if format && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
+		return "", fmt.Errorf(`action %q doesn't support "format" flag`, action)
 	}
 
 	// inputs

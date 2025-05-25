@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -26,7 +27,7 @@ func goToBucket(root *bbolt.Bucket, path [][]byte) (*bbolt.Bucket, error) {
 func pathStr(path [][]byte) string {
 	s := ""
 	for _, v := range path {
-		if n := stringifyName(v); len(n) == 1 {
+		if n := formatName(v, false); len(n) == 1 {
 			s += n[0] + " -> "
 		} else {
 			s += "[" + strings.Join(n, ", ") + "] -> "
@@ -92,8 +93,8 @@ func toBytes(v nu.Value) ([]byte, error) {
 	}
 }
 
-func formatName(name []byte) nu.Value {
-	r := stringifyName(name)
+func stringifyName(name []byte) nu.Value {
+	r := formatName(name, true)
 	if len(r) == 1 {
 		return nu.Value{Value: r[0]}
 	}
@@ -101,8 +102,17 @@ func formatName(name []byte) nu.Value {
 	return nu.Value{Value: "[" + strings.Join(r, ", ") + "]"}
 }
 
-func stringifyName(name []byte) []string {
-	r := tokenizeName(name)
+func textName(name []byte) nu.Value {
+	r := formatName(name, false)
+	if len(r) == 1 {
+		return nu.Value{Value: r[0]}
+	}
+
+	return nu.Value{Value: "[" + strings.Join(r, ", ") + "]"}
+}
+
+func formatName(name []byte, stringify bool) []string {
+	r := tokenizeName(slices.Clone(name), stringify)
 	s := make([]string, 0, len(r))
 	for _, v := range r {
 		if t, ok := v.(string); ok {
@@ -115,7 +125,7 @@ func stringifyName(name []byte) []string {
 	return s
 }
 
-func tokenizeName(name []byte) []any {
+func tokenizeName(name []byte, stringify bool) []any {
 	r := make([]any, 0, 1)
 	printable := false // is the last run in "r" printable
 	for i := 0; i < len(name); {
@@ -127,16 +137,18 @@ func tokenizeName(name []byte) []any {
 				r[len(r)-1] = append(lr, name[i:i+size]...)
 			} else {
 				s := string(name[i : i+size])
-				switch {
-				case flags == 0: // OK to use bare string
-				case flags&flagSQuote == 0:
-					s = "'" + s + "'"
-				case flags&flagBacktick == 0:
-					s = "`" + s + "`"
-				case flags&flagDQuote == 0 && flags&flagBackslash == 0:
-					s = `"` + s + `"`
-				default:
-					s = fmt.Sprintf("%q", s)
+				if stringify {
+					switch {
+					case flags == 0: // OK to use bare string
+					case flags&flagSQuote == 0:
+						s = "'" + s + "'"
+					case flags&flagBacktick == 0:
+						s = "`" + s + "`"
+					case flags&flagDQuote == 0 && flags&flagBackslash == 0:
+						s = `"` + s + `"`
+					default:
+						s = fmt.Sprintf("%q", s)
+					}
 				}
 				r = append(r, s)
 				printable = true

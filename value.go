@@ -40,6 +40,7 @@ func getValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	if err != nil {
 		return err
 	}
+	format := getFormatter(call)
 
 	return db.View(func(tx *bbolt.Tx) error {
 		b, err := goToBucket(tx.Cursor().Bucket(), path)
@@ -64,7 +65,7 @@ func getValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			if v != nil && filter(k) {
 				out <- nu.Value{Value: nu.Record{
-					"key":   nu.Value{Value: slices.Clone(k)},
+					"key":   format(k),
 					"value": nu.Value{Value: slices.Clone(v)},
 				}}
 			}
