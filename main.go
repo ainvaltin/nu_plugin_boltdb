@@ -52,7 +52,7 @@ func boltCmd() *nu.Command {
 					"list, ie path `foo -> bar` would be [foo, bar]. Nested lists can be used to build bucket name from parts. When not provided action takes place in the root bucket."},
 				{Long: "key", Short: 'k', Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
 				{Long: "match", Short: 'r', Shape: syntaxshape.String(), Desc: "Regex to filter keys or buckets by name - if the name matches the regex it is included in the output."},
-				{Long: "format", Short: 'f', Shape: syntaxshape.String(), Desc: "Format key/bucket names - instead of raw binary human readable names are listed (commands `buckets` and `keys`), values: binary, hex, text, stringify"},
+				{Long: "format", Short: 'f', Shape: syntaxshape.String(), Desc: "Format key/bucket names (commands `buckets` and `keys`), values: binary, hex, text, stringify"},
 			},
 			RequiredPositional: []nu.PositionalArg{
 				{Name: "file", Shape: syntaxshape.Filepath(), Desc: `Name of the Bolt database file.`},
@@ -103,20 +103,25 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 	case "info":
 		return info(ctx, db, call)
 	default:
+		// should actually never end up here, the checkArgs will return error
 		return fmt.Errorf("unknown action %q", action)
 	}
 }
 
 func checkArgs(call *nu.ExecCommand) (action string, err error) {
+	fmtValue, format := call.FlagValue("format")
 	_, filter := call.FlagValue("match")
-	_, format := call.FlagValue("format")
 	_, bucket := call.FlagValue("bucket")
 	_, key := call.FlagValue("key")
 
 	switch action = call.Positional[1].Value.(string); action {
 	case "keys", "get", "set", "add", "delete", "buckets", "stat", "info":
 	default:
-		return "", fmt.Errorf("unknown action %q", action)
+		return "", nu.Error{
+			Err:    fmt.Errorf("unknown action %q", action),
+			Help:   `valid actions are: "keys", "get", "set", "add", "delete", "buckets", "stat", "info"`,
+			Labels: []nu.Label{{Text: "unknown action", Span: call.Positional[1].Span}},
+		}
 	}
 
 	// do we have required flags set
@@ -143,8 +148,19 @@ func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	if filter && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
 		return "", fmt.Errorf(`action %q doesn't support "match" flag`, action)
 	}
-	if format && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
-		return "", fmt.Errorf(`action %q doesn't support "format" flag`, action)
+	if format {
+		if !slices.Contains([]string{"buckets", "keys", "get"}, action) {
+			return "", fmt.Errorf(`action %q doesn't support "format" flag`, action)
+		}
+		switch s := fmtValue.Value.(string); s {
+		case "binary", "hex", "HEX", "stringify", "text":
+		default:
+			return "", nu.Error{
+				Err:    fmt.Errorf("unsupported format %q", s),
+				Help:   `Valid formats are: "binary", "hex", "HEX", "stringify", "text"`,
+				Labels: []nu.Label{{Text: "unsupported format specifier", Span: fmtValue.Span}},
+			}
+		}
 	}
 
 	// inputs

@@ -11,26 +11,6 @@ import (
 	"github.com/ainvaltin/nu-plugin"
 )
 
-func addBucket(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
-	path, _, err := location(call)
-	if err != nil {
-		return err
-	}
-
-	return db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(path[0])
-		if err != nil {
-			return err
-		}
-		for _, v := range path[1:] {
-			if b, err = b.CreateBucketIfNotExists(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 func getValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	path, key, err := location(call)
 	if err != nil {
@@ -43,13 +23,13 @@ func getValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	format := getFormatter(call)
 
 	return db.View(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
 
 		if key != nil {
-			if v := b.Get(key); v != nil {
+			if v := b.Get(key.name); v != nil {
 				return call.ReturnValue(ctx, nu.Value{Value: slices.Clone(v)})
 			}
 			return nil
@@ -84,11 +64,11 @@ func setValue(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		return err
 	}
 	return db.Update(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
-		return b.Put(key, v)
+		return b.Put(key.name, v)
 	})
 }
 

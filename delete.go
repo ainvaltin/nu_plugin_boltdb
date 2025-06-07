@@ -16,17 +16,17 @@ func delete(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 
 	return db.Update(func(tx *bbolt.Tx) error {
 		if key == nil {
-			b, err := goToBucket(tx.Cursor().Bucket(), path[:len(path)-1])
+			b, err := goToBucket(tx, path[:len(path)-1])
 			if err != nil {
 				return err
 			}
-			return b.DeleteBucket(path[len(path)-1])
+			return b.DeleteBucket(path[len(path)-1].name)
 		}
 
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
-		return b.Delete(key)
+		return b.Delete(key.name)
 	})
 }

@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"slices"
 
 	"go.etcd.io/bbolt"
 
@@ -25,7 +23,7 @@ func listBuckets(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error 
 	format := getFormatter(call)
 
 	return db.View(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
@@ -59,7 +57,7 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	format := getFormatter(call)
 
 	return db.View(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
@@ -77,36 +75,4 @@ func listKeys(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 			return nil
 		})
 	})
-}
-
-func getFilter(call *nu.ExecCommand) (func(key []byte) bool, error) {
-	match, ok := call.FlagValue("match")
-	if !ok {
-		return func([]byte) bool { return true }, nil
-	}
-
-	reg, err := regexp.Compile(match.Value.(string))
-	if err != nil {
-		return nil, fmt.Errorf("compiling regular expression: %w", err)
-	}
-	return func(key []byte) bool { return reg.Match(key) }, nil
-}
-
-func getFormatter(call *nu.ExecCommand) func([]byte) nu.Value {
-	// the default is  native/binary format
-	format := func(name []byte) nu.Value { return nu.Value{Value: slices.Clone(name)} }
-
-	fmtFlag, ok := call.FlagValue("format")
-	if !ok {
-		return format
-	}
-	switch fmtFlag.Value.(string) {
-	case "stringify":
-		return stringifyName
-	case "text":
-		return textName
-	case "hex":
-		return func(b []byte) nu.Value { return nu.Value{Value: fmt.Sprintf("%x", b)} }
-	}
-	return format
 }

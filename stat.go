@@ -18,7 +18,7 @@ func stat(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	}
 
 	return db.View(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
@@ -32,7 +32,7 @@ func info(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 		return err
 	}
 	return db.View(func(tx *bbolt.Tx) error {
-		b, err := goToBucket(tx.Cursor().Bucket(), path)
+		b, err := goToBucket(tx, path)
 		if err != nil {
 			return err
 		}
