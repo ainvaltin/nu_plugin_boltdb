@@ -37,6 +37,9 @@ func toPath(v nu.Value) (path []boltItem, _ error) {
 				// support optional items as last member(s)?
 				return nil, (&nu.Error{Err: errors.New("optional path members are not supported")}).AddLabel("optional members not supported", v.Span())
 			}
+			if !v.CaseSensitive() {
+				return nil, nu.Error{Err: errors.New("case-insensitive path members are not supported"), Labels: []nu.Label{{Text: "case-insensitive members not supported", Span: v.Span()}}}
+			}
 			path = append(path, boltItem{name: []byte(v.PathStr()), span: v.Span()})
 		}
 		return path, nil
