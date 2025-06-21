@@ -4,6 +4,8 @@
 [Plugin](https://www.nushell.sh/contributor-book/plugins.html) 
 to interact with [bbolt database](https://github.com/etcd-io/bbolt).
 
+<img src="demo.gif" />
+
 ## Usage
 
 Plugin implements `boltdb` command
@@ -43,9 +45,9 @@ $env.config.plugins = {
 }
 ```
 
-save the file and reload the nushell configuration, ie on Mac
+save the file and reload the nushell configuration, ie
 
-    source `~/Library/Application Support/nushell/env.nu`
+    source $nu.env-path
 
 ## Installation
 
