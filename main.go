@@ -81,7 +81,7 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 
 	db, err := openDB(ctx, call, action)
 	if err != nil {
-		return fmt.Errorf("opening bolt db: %w", err)
+		return err
 	}
 	defer db.Close()
 
@@ -110,13 +110,12 @@ func boltCmdHandler(ctx context.Context, call *nu.ExecCommand) error {
 
 func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	fmtValue, format := call.FlagValue("format")
-	_, filter := call.FlagValue("match")
+	rexValue, filter := call.FlagValue("match")
+	keyValue, key := call.FlagValue("key")
 	_, bucket := call.FlagValue("bucket")
-	_, key := call.FlagValue("key")
 
-	switch action = call.Positional[1].Value.(string); action {
-	case "keys", "get", "set", "add", "delete", "buckets", "stat", "info":
-	default:
+	action = call.Positional[1].Value.(string)
+	if !slices.Contains([]string{"keys", "get", "set", "add", "delete", "buckets", "stat", "info"}, action) {
 		return "", nu.Error{
 			Err:    fmt.Errorf("unknown action %q", action),
 			Help:   `valid actions are: "keys", "get", "set", "add", "delete", "buckets", "stat", "info"`,
@@ -136,25 +135,26 @@ func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	if !(key || filter) && slices.Contains([]string{"get", "delete"}, action) {
 		return "", fmt.Errorf(`action %q requires either "key" or "match" flag to be provided`, action)
 	}
-	// do not allow key and filter at the same time?
+	// do not allow key and filter at the same time
 	if (key && filter) && slices.Contains([]string{"get", "delete"}, action) {
-		return "", fmt.Errorf(`action %q allows either "key" or "match" flag but not both at the same time`, action)
+		return "", nu.Error{
+			Err:    fmt.Errorf(`action %q allows either "key" or "match" flag but not both at the same time`, action),
+			Labels: []nu.Label{{Text: "choose one", Span: keyValue.Span}, {Text: "choose one", Span: rexValue.Span}},
+		}
 	}
 
 	// do we have flags set which do not apply for the action
 	if key && !slices.Contains([]string{"get", "set", "delete"}, action) {
-		return "", fmt.Errorf(`action %q doesn't allow "key" flag`, action)
+		return "", flagNotSupportedErr("key", action, keyValue.Span)
 	}
 	if filter && !slices.Contains([]string{"buckets", "keys", "get"}, action) {
-		return "", fmt.Errorf(`action %q doesn't support "match" flag`, action)
+		return "", flagNotSupportedErr("match", action, rexValue.Span)
 	}
 	if format {
 		if !slices.Contains([]string{"buckets", "keys", "get"}, action) {
-			return "", fmt.Errorf(`action %q doesn't support "format" flag`, action)
+			return "", flagNotSupportedErr("format", action, fmtValue.Span)
 		}
-		switch s := fmtValue.Value.(string); s {
-		case "binary", "hex", "HEX", "stringify", "text":
-		default:
+		if s := fmtValue.Value.(string); !slices.Contains([]string{"binary", "hex", "HEX", "stringify", "text"}, s) {
 			return "", nu.Error{
 				Err:    fmt.Errorf("unsupported format %q", s),
 				Help:   `Valid formats are: "binary", "hex", "HEX", "stringify", "text"`,
@@ -169,9 +169,20 @@ func checkArgs(call *nu.ExecCommand) (action string, err error) {
 	}
 	if len(call.Positional) == 3 && call.Input != nil {
 		return "", fmt.Errorf(`both "data" argument and input can't be used at the same time`)
+		/*return "", nu.Error{
+			Err:    fmt.Errorf(`both "data" argument and input can't be used at the same time`),
+			Labels: []nu.Label{{Text: "choose one", Span: input span currently not available}, {Text: "choose one", Span: call.Positional[2].Span}},
+		}*/
 	}
 
 	return action, nil
+}
+
+func flagNotSupportedErr(flag, action string, span nu.Span) error {
+	return nu.Error{
+		Err:    fmt.Errorf(`action %q doesn't allow %q flag`, action, flag),
+		Labels: []nu.Label{{Text: "flag not supported by the action", Span: span}},
+	}
 }
 
 func quitSignalContext() context.Context {

@@ -15,13 +15,13 @@ func addBucket(ctx context.Context, db *bbolt.DB, call *nu.ExecCommand) error {
 	}
 
 	return db.Update(func(tx *bbolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(path[0].name)
-		if err != nil {
-			return err
-		}
-		for _, v := range path[1:] {
+		b := tx.Cursor().Bucket()
+		for _, v := range path {
 			if b, err = b.CreateBucketIfNotExists(v.name); err != nil {
-				return err
+				return nu.Error{
+					Err:    err,
+					Labels: []nu.Label{{Text: "invalid bucket", Span: v.span}},
+				}
 			}
 		}
 		return nil

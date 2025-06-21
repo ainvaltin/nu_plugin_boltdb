@@ -34,6 +34,10 @@ func toBytes(v nu.Value) ([]byte, error) {
 		// IntRange - generates binary blob?
 		// Closure - returns binary?
 	default:
-		return nil, (&nu.Error{Err: errors.New("can't convert value to bytes")}).AddLabel(fmt.Sprintf("unsupported type %T", t), v.Span)
+		return nil, nu.Error{
+			Err:    errors.New("can't convert value to bytes"),
+			Help:   "Supported types are Binary and String",
+			Labels: []nu.Label{{Text: fmt.Sprintf("unsupported type %T", t), Span: v.Span}},
+		}
 	}
 }

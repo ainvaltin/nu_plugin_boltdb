@@ -21,6 +21,51 @@ type configuration struct {
 	mustExist bool // if true only existing files can be opened (ie can't create new DB)
 }
 
+func (cfg *configuration) parse(v nu.Value) error {
+	r, ok := v.Value.(nu.Record)
+	if !ok {
+		return nu.Error{Err: fmt.Errorf("expected configuration to be Record, got %T", v.Value), Labels: []nu.Label{{Text: "expected Record", Span: v.Span}}}
+	}
+	for k, v := range r {
+		switch k {
+		case "ReadOnly":
+			if cfg.readOnly, ok = v.Value.(bool); !ok {
+				return expectedBool("ReadOnly", v)
+			}
+		case "timeout":
+			if cfg.timeout, ok = v.Value.(time.Duration); !ok {
+				return nu.Error{
+					Err:    fmt.Errorf("expected 'timeout' to be Duration, got %T", v.Value),
+					Help:   "Duration is a number followed by unit, ie 5sec",
+					Labels: []nu.Label{{Text: "expected Duration", Span: v.Span}},
+				}
+			}
+		case "fileMode":
+			var m int64
+			if m, ok = v.Value.(int64); !ok {
+				return nu.Error{
+					Err:    fmt.Errorf("expected 'fileMode' to be integer, got %T", v.Value),
+					Labels: []nu.Label{{Text: "expected Integer", Span: v.Span}},
+				}
+			}
+			cfg.fileMode = fs.FileMode(m)
+		case "mustExist":
+			if cfg.mustExist, ok = v.Value.(bool); !ok {
+				return expectedBool("mustExist", v)
+			}
+		}
+	}
+	return nil
+}
+
+func expectedBool(name string, v nu.Value) error {
+	return nu.Error{
+		Err:    fmt.Errorf("expected %q to be boolean, got %T", name, v.Value),
+		Help:   "Valid values are 'true' and 'false' (without quotes).",
+		Labels: []nu.Label{{Text: "expected boolean", Span: v.Span}},
+	}
+}
+
 func loadCfg(ctx context.Context, call *nu.ExecCommand) (configuration, error) {
 	cfg := configuration{
 		timeout:   3 * time.Second,
@@ -37,21 +82,8 @@ func loadCfg(ctx context.Context, call *nu.ExecCommand) (configuration, error) {
 		return cfg, nil
 	}
 
-	r, ok := v.Value.(nu.Record)
-	if !ok {
-		return cfg, fmt.Errorf("expected configuration to be Record, got %T", v.Value)
-	}
-	for k, v := range r {
-		switch k {
-		case "ReadOnly":
-			cfg.readOnly = v.Value.(bool)
-		case "timeout":
-			cfg.timeout = v.Value.(time.Duration)
-		case "fileMode":
-			cfg.fileMode = fs.FileMode(v.Value.(int64))
-		case "mustExist":
-			cfg.mustExist = v.Value.(bool)
-		}
+	if err = cfg.parse(*v); err != nil {
+		return cfg, fmt.Errorf("parsing plugin configuration: %w", err)
 	}
 	return cfg, nil
 }
@@ -66,10 +98,10 @@ func openDB(ctx context.Context, call *nu.ExecCommand, action string) (*bbolt.DB
 	if _, err := os.Stat(dbName); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			if cfg.mustExist || !slices.Contains([]string{"add", "set"}, action) {
-				return nil, fmt.Errorf("database does not exist and creating databases is disabled")
+				return nil, nu.Error{Err: fmt.Errorf("database does not exist and creating databases is disabled"), Labels: []nu.Label{{Text: "file does not exist", Span: call.Positional[0].Span}}}
 			}
 		} else {
-			return nil, fmt.Errorf("invalid database name: %w", err)
+			return nil, nu.Error{Err: fmt.Errorf("invalid database name: %w", err), Labels: []nu.Label{{Text: err.Error(), Span: call.Positional[0].Span}}}
 		}
 	}
 

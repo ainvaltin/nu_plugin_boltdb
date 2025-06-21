@@ -28,6 +28,7 @@ func location(call *nu.ExecCommand) (bucket []boltItem, key *boltItem, err error
 func getFilter(call *nu.ExecCommand) (func(key []byte) bool, error) {
 	match, ok := call.FlagValue("match")
 	if !ok {
+		// default is that everything matches
 		return func([]byte) bool { return true }, nil
 	}
 
@@ -35,6 +36,7 @@ func getFilter(call *nu.ExecCommand) (func(key []byte) bool, error) {
 	if err != nil {
 		return nil, nu.Error{
 			Err:    fmt.Errorf("compiling regular expression: %w", err),
+			Code:   "go::regexp::syntax",
 			Url:    "https://pkg.go.dev/regexp/syntax",
 			Help:   "See Go documentation about supported regular expression syntax",
 			Labels: []nu.Label{{Text: "invalid regexp", Span: match.Span}},
