@@ -98,7 +98,13 @@ func openDB(ctx context.Context, call *nu.ExecCommand, action string) (*bbolt.DB
 	if _, err := os.Stat(dbName); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			if cfg.mustExist || !slices.Contains([]string{"add", "set"}, action) {
-				return nil, nu.Error{Err: fmt.Errorf("database does not exist and creating databases is disabled"), Labels: []nu.Label{{Text: "file does not exist", Span: call.Positional[0].Span}}}
+				return nil, nu.Error{
+					Err:    fmt.Errorf("database does not exist"),
+					Code:   "boltdb::config::mustExist",
+					Url:    "https://github.com/ainvaltin/nu_plugin_boltdb?tab=readme-ov-file#configuration",
+					Help:   `Only "add" and "set" actions are allowed to create database as the "mustExist" configuration flag is set to "true".`,
+					Labels: []nu.Label{{Text: "file does not exist", Span: call.Positional[0].Span}},
+				}
 			}
 		} else {
 			return nil, nu.Error{Err: fmt.Errorf("invalid database name: %w", err), Labels: []nu.Label{{Text: err.Error(), Span: call.Positional[0].Span}}}
