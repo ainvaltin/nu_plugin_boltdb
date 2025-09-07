@@ -51,7 +51,7 @@ save the file and reload the nushell configuration, ie
 
 ## Installation
 
-Latest version is for [Nushell](https://www.nushell.sh/) version **0.105.0**.
+Latest version is for [Nushell](https://www.nushell.sh/) version **0.107.0**.
 
 Written in [Go](https://go.dev/) using 
 [nu-plugin package](https://github.com/ainvaltin/nu-plugin).
