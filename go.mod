@@ -1,14 +1,14 @@
 module github.com/ainvaltin/nu_plugin_boltdb
 
-go 1.24
+go 1.24.0
 
 require (
-	github.com/ainvaltin/nu-plugin v0.0.0-20260224100859-3c37d09e46b9
-	go.etcd.io/bbolt v1.4.0
+	github.com/ainvaltin/nu-plugin v0.0.0-20260301103531-c068ae10068b
+	go.etcd.io/bbolt v1.4.3
 )
 
 require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 )
