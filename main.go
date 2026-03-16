@@ -52,11 +52,41 @@ func boltCmd() *nu.Command {
 					"list, ie path `foo -> bar` would be [foo, bar]. Nested lists can be used to build bucket name from parts. When not provided action takes place in the root bucket."},
 				{Long: "key", Short: 'k', Shape: nameShape, Desc: `Name of the key to operate on. If the value is List all items will be concatenated to single byte array, ie given '-k ["item " 0x[0005]]' the key name used would be string "item" followed by space and two bytes with values 0 and 5, it's equivalent to '-k 0x[6974656D200005]'.`},
 				{Long: "match", Short: 'r', Shape: syntaxshape.String(), Desc: "Regex to filter keys or buckets by name - if the name matches the regex it is included in the output."},
-				{Long: "format", Short: 'f', Shape: syntaxshape.String(), Desc: "Format key/bucket names (commands `buckets` and `keys`), values: binary, hex, text, stringify"},
+				{
+					Long:  "format",
+					Short: 'f',
+					Shape: syntaxshape.String(),
+					Desc:  "Format key/bucket names (commands `buckets` and `keys`), values: binary, hex, text, stringify",
+					GetCompletions: func() []nu.DynamicSuggestion {
+						return []nu.DynamicSuggestion{
+							{Value: "binary", Description: "native format (shows up as list of integers)"},
+							{Value: "hex", Description: "hexadecimal string representation of the binary (lower case)"},
+							{Value: "HEX", Description: "hexadecimal string representation of the binary (upper case)"},
+							{Value: "text", Description: "if possible use text instead of binary, usable as input for b or k flag"},
+							{Value: "stringify", Description: "as much human readable as possible"},
+						}
+					},
+				},
 			},
 			RequiredPositional: []nu.PositionalArg{
 				{Name: "file", Shape: syntaxshape.Filepath(), Desc: `Name of the Bolt database file.`},
-				{Name: "action", Shape: syntaxshape.String(), Desc: "Operation to perform: buckets, keys, get, set, add, delete, stat, info"},
+				{
+					Name:  "action",
+					Shape: syntaxshape.String(),
+					Desc:  "Operation to perform: buckets, keys, get, set, add, delete, stat, info",
+					GetCompletions: func() []nu.DynamicSuggestion {
+						return []nu.DynamicSuggestion{
+							{Value: "buckets", Description: "list buckets"},
+							{Value: "keys", Description: "list keys"},
+							{Value: "get", Description: "for a key returns it's value, for a bucket returns list of it's key/value pairs"},
+							{Value: "set", Description: "set value of the key"},
+							{Value: "add", Description: "add new bucket"},
+							{Value: "delete", Description: "delete key or bucket"},
+							{Value: "stat", Description: "return statistics on a bucket"},
+							{Value: "info", Description: "returns the structure of the bucket"},
+						}
+					},
+				},
 			},
 			RestPositional:       &nu.PositionalArg{Name: "data", Shape: syntaxshape.OneOf(syntaxshape.Binary(), syntaxshape.String()), Desc: `Data for the operation, alternative for the input.`},
 			AllowMissingExamples: true,

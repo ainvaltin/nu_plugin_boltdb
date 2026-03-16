@@ -3,7 +3,7 @@ module github.com/ainvaltin/nu_plugin_boltdb
 go 1.24.0
 
 require (
-	github.com/ainvaltin/nu-plugin v0.0.0-20260301103531-c068ae10068b
+	github.com/ainvaltin/nu-plugin v0.0.0-20260316164712-462607181668
 	go.etcd.io/bbolt v1.4.3
 )
 
