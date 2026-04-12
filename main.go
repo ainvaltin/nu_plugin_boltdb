@@ -57,7 +57,7 @@ func boltCmd() *nu.Command {
 					Short: 'f',
 					Shape: syntaxshape.String(),
 					Desc:  "Format key/bucket names (commands `buckets` and `keys`), values: binary, hex, text, stringify",
-					GetCompletions: func() []nu.DynamicSuggestion {
+					Completions: nu.DynamicCompletion(func() []nu.DynamicSuggestion {
 						return []nu.DynamicSuggestion{
 							{Value: "binary", Description: "native format (shows up as list of integers)"},
 							{Value: "hex", Description: "hexadecimal string representation of the binary (lower case)"},
@@ -65,7 +65,7 @@ func boltCmd() *nu.Command {
 							{Value: "text", Description: "if possible use text instead of binary, usable as input for b or k flag"},
 							{Value: "stringify", Description: "as much human readable as possible"},
 						}
-					},
+					}),
 				},
 			},
 			RequiredPositional: []nu.PositionalArg{
@@ -74,7 +74,7 @@ func boltCmd() *nu.Command {
 					Name:  "action",
 					Shape: syntaxshape.String(),
 					Desc:  "Operation to perform: buckets, keys, get, set, add, delete, stat, info",
-					GetCompletions: func() []nu.DynamicSuggestion {
+					Completions: nu.DynamicCompletion(func() []nu.DynamicSuggestion {
 						return []nu.DynamicSuggestion{
 							{Value: "buckets", Description: "list buckets"},
 							{Value: "keys", Description: "list keys"},
@@ -85,7 +85,7 @@ func boltCmd() *nu.Command {
 							{Value: "stat", Description: "return statistics on a bucket"},
 							{Value: "info", Description: "returns the structure of the bucket"},
 						}
-					},
+					}),
 				},
 			},
 			RestPositional:       &nu.PositionalArg{Name: "data", Shape: syntaxshape.OneOf(syntaxshape.Binary(), syntaxshape.String()), Desc: `Data for the operation, alternative for the input.`},
